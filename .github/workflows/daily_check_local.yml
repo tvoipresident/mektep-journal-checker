@@ -1,0 +1,36 @@
+name: Журнал тексеру (self-hosted)
+
+on:
+  schedule:
+    - cron: '0 16 * * *'   # 21:00 Актау (UTC+5)
+  workflow_dispatch:        # ручной запуск для теста
+
+jobs:
+  check-journals:
+    # ВАЖНО: runs-on должен совпадать с меткой твоего runner-а
+    runs-on: self-hosted
+    timeout-minutes: 120
+
+    steps:
+      - name: Репозиторий жүктеу
+        uses: actions/checkout@v4
+
+      - name: Python зависимости орнату
+        run: pip install requests beautifulsoup4 python-docx Pillow selenium
+
+      - name: Журналдарды тексеру (скриншотпен)
+        env:
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEACHERS_JSON:    ${{ secrets.TEACHERS_JSON }}
+        run: python check_runner_local.py
+
+      - name: Қате болса хабарлау
+        if: failure()
+        env:
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST ^
+            "https://api.telegram.org/bot%TELEGRAM_TOKEN%/sendMessage" ^
+            -d "chat_id=%TELEGRAM_CHAT_ID%&text=❌ Тексеру қатемен аяқталды!&parse_mode=HTML"
